@@ -4,29 +4,30 @@ import { useEffect, useMemo, useState } from "react";
 import AddItemModal from "@/components/AddItemModal";
 import AllocateFundsModal from "@/components/AllocateFundsModal";
 import ItemCard from "@/components/ItemCard";
-import { Fund, Item, Tier } from "@/types/wyse";
+import { getBuyNextItem } from "@/lib/buyNext";
+import { Fund, Item } from "@/types/wyse";
 
 const adminSecret = process.env.NEXT_PUBLIC_ADMIN_SECRET ?? "";
 
 export default function Home() {
   const [items, setItems] = useState<Item[]>([]);
+  const [funds, setFunds] = useState<Fund[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddItem, setShowAddItem] = useState(false);
   const [allocationFund, setAllocationFund] = useState<Fund | null>(null);
-  const [now, setNow] = useState(() => Date.now());
 
-  const incubatorItems = useMemo(
+  const wishlistItems = useMemo(
     () =>
       items
-        .filter((item) => item.zone === "incubator" && item.status === "active")
+        .filter((item) => item.zone === "wishlist" && item.status === "active")
         .sort((a, b) => +new Date(b.addedAt) - +new Date(a.addedAt)),
     [items],
   );
 
-  const definiteItems = useMemo(
+  const savingItems = useMemo(
     () =>
       items
-        .filter((item) => item.zone === "definite" && item.status === "active")
+        .filter((item) => item.zone === "saving" && item.status === "active")
         .sort((a, b) => {
           const ap = a.price > 0 ? a.funded / a.price : 0;
           const bp = b.price > 0 ? b.funded / b.price : 0;
@@ -36,10 +37,17 @@ export default function Home() {
   );
 
   const totals = useMemo(() => {
-    const totalNeeded = definiteItems.reduce((sum, item) => sum + item.price, 0);
-    const totalFunded = definiteItems.reduce((sum, item) => sum + item.funded, 0);
+    const totalNeeded = savingItems.reduce((sum, item) => sum + item.price, 0);
+    const totalFunded = savingItems.reduce((sum, item) => sum + item.funded, 0);
     return { totalNeeded, totalFunded };
-  }, [definiteItems]);
+  }, [savingItems]);
+
+  const availableSavings = useMemo(
+    () => funds.reduce((sum, fund) => sum + (fund.unallocated || 0), 0),
+    [funds],
+  );
+
+  const nextUpItem = useMemo(() => getBuyNextItem(savingItems), [savingItems]);
 
   async function loadItems() {
     try {
@@ -60,26 +68,58 @@ export default function Home() {
     }
   }
 
+  async function loadFunds() {
+    try {
+      const response = await fetch("/api/funds", {
+        headers: {
+          "x-admin-secret": adminSecret,
+        },
+      });
+      if (!response.ok) {
+        throw new Error("Failed to load funds");
+      }
+      const data = (await response.json()) as Fund[];
+      setFunds(data);
+    } catch {
+      setFunds([]);
+    }
+  }
+
   useEffect(() => {
     let cancelled = false;
 
     async function init() {
       try {
-        const response = await fetch("/api/items", {
-          headers: {
-            "x-admin-secret": adminSecret,
-          },
-        });
-        if (!response.ok || cancelled) {
+        const [itemsResponse, fundsResponse] = await Promise.all([
+          fetch("/api/items", {
+            headers: {
+              "x-admin-secret": adminSecret,
+            },
+          }),
+          fetch("/api/funds", {
+            headers: {
+              "x-admin-secret": adminSecret,
+            },
+          }),
+        ]);
+
+        if (!itemsResponse.ok || !fundsResponse.ok || cancelled) {
           throw new Error("Failed to load items");
         }
-        const data = (await response.json()) as Item[];
+
+        const [itemsData, fundsData] = await Promise.all([
+          itemsResponse.json() as Promise<Item[]>,
+          fundsResponse.json() as Promise<Fund[]>,
+        ]);
+
         if (!cancelled) {
-          setItems(data);
+          setItems(itemsData);
+          setFunds(fundsData);
         }
       } catch {
         if (!cancelled) {
           setItems([]);
+          setFunds([]);
         }
       } finally {
         if (!cancelled) {
@@ -95,53 +135,20 @@ export default function Home() {
     };
   }, []);
 
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      setNow(Date.now());
-    }, 60 * 60 * 1000);
-
-    return () => {
-      window.clearInterval(timer);
-    };
-  }, []);
-
-  function getDaysRemaining(promoteAfter: string | null) {
-    if (!promoteAfter) return 0;
-    const distance = new Date(promoteAfter).getTime() - now;
-    if (distance <= 0) return 0;
-    return Math.ceil(distance / (1000 * 60 * 60 * 24));
-  }
-
-  async function handlePromote(item: Item) {
-    const remaining = getDaysRemaining(item.promoteAfter);
-    if (remaining > 0) {
-      const confirmed = window.confirm(
-        `This item still has ${remaining} day(s) in cool-off. Promote anyway?`,
-      );
-      if (!confirmed) return;
-    }
-
-    const tierInput = window.prompt("Set tier for this item: high, mid, or low", "mid");
-    const tier = (tierInput || "mid").toLowerCase() as Tier;
-
-    if (!["high", "mid", "low"].includes(tier)) {
-      alert("Invalid tier. Use high, mid, or low.");
-      return;
-    }
-
+  async function handleStartSaving(item: Item) {
     await fetch(`/api/items/${item._id}`, {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
         "x-admin-secret": adminSecret,
       },
-      body: JSON.stringify({ zone: "definite", tier }),
+      body: JSON.stringify({ zone: "saving" }),
     });
 
     await loadItems();
   }
 
-  async function handleDrop(item: Item) {
+  async function handleRemove(item: Item) {
     await fetch(`/api/items/${item._id}`, {
       method: "DELETE",
       headers: {
@@ -178,6 +185,7 @@ export default function Home() {
 
     const fund = (await response.json()) as Fund;
     setAllocationFund(fund);
+    await loadFunds();
   }
 
   async function handleQuickAddFunds(item: Item) {
@@ -196,7 +204,12 @@ export default function Home() {
         "Content-Type": "application/json",
         "x-admin-secret": adminSecret,
       },
-      body: JSON.stringify({ amount, source: "quick-add" }),
+      body: JSON.stringify({
+        amount,
+        source: "quick-add",
+        applyToItemId: item._id,
+        applyAmount: amount,
+      }),
     });
 
     if (!fundRes.ok) {
@@ -204,23 +217,12 @@ export default function Home() {
       return;
     }
 
-    const fund = (await fundRes.json()) as Fund;
-
-    await fetch(`/api/funds/${fund._id}`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        "x-admin-secret": adminSecret,
-      },
-      body: JSON.stringify({ allocations: [{ itemId: item._id, amount }] }),
-    });
-
-    await loadItems();
+    await Promise.all([loadItems(), loadFunds()]);
   }
 
-  const highItems = definiteItems.filter((item) => item.tier === "high");
-  const midItems = definiteItems.filter((item) => item.tier === "mid");
-  const lowItems = definiteItems.filter((item) => item.tier === "low");
+  const bigItems = savingItems.filter((item) => item.tier === "big");
+  const mediumItems = savingItems.filter((item) => item.tier === "medium");
+  const smallItems = savingItems.filter((item) => item.tier === "small");
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,_#d6f5ec,_#f8fafc_55%)] p-4 text-slate-900 md:p-8">
@@ -230,8 +232,9 @@ export default function Home() {
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-teal-800">Wyse</p>
             <h1 className="text-3xl font-bold text-[#0F6E56]">Spend with intention</h1>
             <p className="text-sm text-slate-600">
-              Total funded ${totals.totalFunded.toFixed(2)} / needed ${totals.totalNeeded.toFixed(2)}
+              Total funded LKR {totals.totalFunded.toFixed(2)} / needed LKR {totals.totalNeeded.toFixed(2)}
             </p>
+            <p className="text-sm text-slate-600">Available savings: LKR {availableSavings.toFixed(2)}</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <button
@@ -251,33 +254,37 @@ export default function Home() {
           </div>
         </header>
 
+        {nextUpItem ? (
+          <section className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            Buy Next: <span className="font-semibold">{nextUpItem.name}</span> (LKR {nextUpItem.price.toFixed(2)})
+          </section>
+        ) : null}
+
         <section className="grid gap-4 lg:grid-cols-2">
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <h2 className="mb-3 text-xl font-semibold text-slate-900">Incubator</h2>
+            <h2 className="mb-3 text-xl font-semibold text-slate-900">Wishlist</h2>
             <div className="max-h-[65vh] space-y-3 overflow-y-auto pr-1">
               {loading ? <p className="text-sm text-slate-600">Loading...</p> : null}
-              {!loading && incubatorItems.length === 0 ? (
-                <p className="text-sm text-slate-600">No incubator items yet.</p>
+              {!loading && wishlistItems.length === 0 ? (
+                <p className="text-sm text-slate-600">No wishlist items yet.</p>
               ) : null}
-              {incubatorItems.map((item) => (
+              {wishlistItems.map((item) => (
                 <ItemCard
                   key={item._id}
                   item={item}
-                  daysRemaining={getDaysRemaining(item.promoteAfter)}
-                  challengeQuestion={item.challengeQuestion}
-                  onPromote={handlePromote}
-                  onDrop={handleDrop}
+                  onStartSaving={handleStartSaving}
+                  onRemove={handleRemove}
                 />
               ))}
             </div>
           </div>
 
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <h2 className="mb-3 text-xl font-semibold text-slate-900">Definite Pipeline</h2>
+            <h2 className="mb-3 text-xl font-semibold text-slate-900">Saving For</h2>
             <div className="grid max-h-[65vh] gap-3 overflow-y-auto pr-1 md:grid-cols-3">
-              <TierColumn title="High" items={highItems} onAddFunds={handleQuickAddFunds} />
-              <TierColumn title="Mid" items={midItems} onAddFunds={handleQuickAddFunds} />
-              <TierColumn title="Low" items={lowItems} onAddFunds={handleQuickAddFunds} />
+              <TierColumn title="Big" items={bigItems} onAddFunds={handleQuickAddFunds} nextUpId={nextUpItem?._id} />
+              <TierColumn title="Medium" items={mediumItems} onAddFunds={handleQuickAddFunds} nextUpId={nextUpItem?._id} />
+              <TierColumn title="Small" items={smallItems} onAddFunds={handleQuickAddFunds} nextUpId={nextUpItem?._id} />
             </div>
           </div>
         </section>
@@ -295,9 +302,11 @@ export default function Home() {
       {allocationFund ? (
         <AllocateFundsModal
           fund={allocationFund}
-          items={definiteItems}
+          items={savingItems}
           onClose={() => setAllocationFund(null)}
-          onAllocated={loadItems}
+          onAllocated={async () => {
+            await Promise.all([loadItems(), loadFunds()]);
+          }}
         />
       ) : null}
     </main>
@@ -308,16 +317,17 @@ type TierColumnProps = {
   title: string;
   items: Item[];
   onAddFunds: (item: Item) => void;
+  nextUpId?: string;
 };
 
-function TierColumn({ title, items, onAddFunds }: TierColumnProps) {
+function TierColumn({ title, items, onAddFunds, nextUpId }: TierColumnProps) {
   return (
     <div className="space-y-2 rounded-xl bg-slate-50 p-2">
       <h3 className="px-1 text-sm font-semibold uppercase tracking-wide text-slate-700">{title}</h3>
       <div className="space-y-2">
         {items.length === 0 ? <p className="px-1 text-xs text-slate-500">No items</p> : null}
         {items.map((item) => (
-          <ItemCard key={item._id} item={item} onAddFunds={onAddFunds} />
+          <ItemCard key={item._id} item={item} onAddFunds={onAddFunds} isNextUp={item._id === nextUpId} />
         ))}
       </div>
     </div>

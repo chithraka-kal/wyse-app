@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
         .join("\n")
     : "";
 
-  const prompt = `You are a savings allocation strategist. The user just received ${body?.amount} in unallocated funds.\n\nTheir Definite Pipeline items (itemId | name | price | already funded | tier):\n${itemList}\n\nRules:\n1. Prioritise completing items that are closest to 100% funded first (psychological win).\n2. Distribute the remainder toward High-tier items.\n3. Never allocate to Incubator items.\n4. Return ONLY a JSON array: [{ "itemId": "...", "amount": number }, ...]\n5. Total of all amounts must exactly equal ${body?.amount}.`;
+  const prompt = `You are a savings allocation strategist. The user just received LKR ${body?.amount} in unallocated funds.\n\nTheir Saving For items (itemId | name | price | already funded | tier):\n${itemList}\n\nRules:\n1. Prioritise completing items that are closest to 100% funded first (psychological win).\n2. Distribute the remainder toward Big-tier items, then Medium, then Small.\n3. Never allocate to Wishlist items.\n4. Return ONLY a JSON array: [{ "itemId": "...", "amount": number }, ...]\n5. Total of all amounts must exactly equal ${body?.amount}.`;
 
   try {
     const result = await askGemini(prompt);

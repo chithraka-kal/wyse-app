@@ -52,8 +52,8 @@ export default function FundsPage() {
               {funds.map((fund) => (
                 <tr key={fund._id} className="border-b border-slate-100 align-top">
                   <td className="py-2">{new Date(fund.receivedAt).toLocaleDateString()}</td>
-                  <td className="py-2">${fund.amount.toFixed(2)}</td>
-                  <td className="py-2">${fund.unallocated.toFixed(2)}</td>
+                  <td className="py-2">LKR {fund.amount.toFixed(2)}</td>
+                  <td className="py-2">LKR {fund.unallocated.toFixed(2)}</td>
                   <td className="py-2">
                     {fund.allocations.length === 0 ? (
                       <span className="text-slate-500">No allocations</span>
@@ -61,7 +61,7 @@ export default function FundsPage() {
                       <ul className="space-y-1">
                         {fund.allocations.map((allocation, index) => (
                           <li key={`${fund._id}-${index}`}>
-                            {getItemName(allocation.itemId)}: ${allocation.amount.toFixed(2)}
+                            {getItemName(allocation.itemId)}: LKR {allocation.amount.toFixed(2)}
                           </li>
                         ))}
                       </ul>

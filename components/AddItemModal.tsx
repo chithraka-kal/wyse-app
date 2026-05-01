@@ -1,8 +1,8 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useState } from "react";
 import AiBadge from "@/components/AiBadge";
-import { Item, Tier, Zone } from "@/types/wyse";
+import { Item, Zone, Priority } from "@/types/wyse";
 
 type AddItemModalProps = {
   onClose: () => void;
@@ -16,13 +16,11 @@ export default function AddItemModal({ onClose, onAdded }: AddItemModalProps) {
   const [price, setPrice] = useState("");
   const [url, setUrl] = useState("");
   const [notes, setNotes] = useState("");
-  const [zone, setZone] = useState<Zone>("incubator");
-  const [tier, setTier] = useState<Tier>("mid");
+  const [zone, setZone] = useState<Zone>("wishlist");
+  const [priority, setPriority] = useState<Priority>(2);
   const [isLoading, setIsLoading] = useState(false);
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [aiUnavailable, setAiUnavailable] = useState(false);
-
-  const showTier = useMemo(() => zone === "definite", [zone]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -30,9 +28,9 @@ export default function AddItemModal({ onClose, onAdded }: AddItemModalProps) {
     setAiUnavailable(false);
 
     let computedPrice = Number(price);
-    let computedTier: Tier | null = showTier ? tier : null;
+    let computedPriority: Priority = priority;
 
-    if (zone === "incubator") {
+    if (zone === "wishlist") {
       setIsAiLoading(true);
       try {
         const aiRes = await fetch("/api/ai/categorise", {
@@ -50,10 +48,9 @@ export default function AddItemModal({ onClose, onAdded }: AddItemModalProps) {
             computedPrice = Number(aiData.result.price);
             setPrice(String(aiData.result.price));
           }
-
-          if (aiData.result.tier && ["high", "mid", "low"].includes(aiData.result.tier)) {
-            computedTier = aiData.result.tier as Tier;
-            setTier(aiData.result.tier as Tier);
+          if (aiData.result.priority && [1, 2, 3].includes(Number(aiData.result.priority))) {
+            computedPriority = Number(aiData.result.priority) as Priority;
+            setPriority(computedPriority);
           }
         } else {
           setAiUnavailable(true);
@@ -70,7 +67,7 @@ export default function AddItemModal({ onClose, onAdded }: AddItemModalProps) {
         name,
         price: computedPrice,
         zone,
-        tier: zone === "definite" ? computedTier : null,
+        priority: computedPriority ?? priority,
         notes,
         url,
       };
@@ -131,7 +128,7 @@ export default function AddItemModal({ onClose, onAdded }: AddItemModalProps) {
         </div>
 
         <div className="space-y-1">
-          <label className="text-sm font-medium text-slate-700">Price (USD)</label>
+          <label className="text-sm font-medium text-slate-700">Price (LKR)</label>
           <input
             value={price}
             onChange={(event) => setPrice(event.target.value)}
@@ -159,25 +156,37 @@ export default function AddItemModal({ onClose, onAdded }: AddItemModalProps) {
             onChange={(event) => setZone(event.target.value as Zone)}
             className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-[#0F6E56]"
           >
-            <option value="incubator">Incubator</option>
-            <option value="definite">Definite Pipeline</option>
+            <option value="wishlist">Wishlist</option>
+            <option value="saving">Saving For</option>
           </select>
         </div>
 
-        {showTier ? (
-          <div className="space-y-1">
-            <label className="text-sm font-medium text-slate-700">Tier</label>
-            <select
-              value={tier}
-              onChange={(event) => setTier(event.target.value as Tier)}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-[#0F6E56]"
+        <div className="space-y-1">
+          <label className="text-sm font-medium text-slate-700">Priority</label>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setPriority(1)}
+              className={`rounded-md px-3 py-1 border ${priority === 1 ? 'bg-amber-200 border-amber-400' : 'border-slate-300'}`}
             >
-              <option value="high">High</option>
-              <option value="mid">Mid</option>
-              <option value="low">Low</option>
-            </select>
+              ! Urgent
+            </button>
+            <button
+              type="button"
+              onClick={() => setPriority(2)}
+              className={`rounded-md px-3 py-1 border ${priority === 2 ? 'bg-slate-200 border-slate-400' : 'border-slate-300'}`}
+            >
+              • Normal
+            </button>
+            <button
+              type="button"
+              onClick={() => setPriority(3)}
+              className={`rounded-md px-3 py-1 border ${priority === 3 ? 'bg-gray-200 border-gray-400' : 'border-slate-300'}`}
+            >
+              ↓ Low
+            </button>
           </div>
-        ) : null}
+        </div>
 
         <div className="space-y-1">
           <label className="text-sm font-medium text-slate-700">Notes</label>

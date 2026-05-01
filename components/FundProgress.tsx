@@ -15,7 +15,7 @@ export default function FundProgress({ funded, price }: FundProgressProps) {
         />
       </div>
       <p className="text-xs text-slate-600">
-        ${funded.toFixed(2)} / ${price.toFixed(2)} ({percentage}%)
+        LKR {funded.toFixed(2)} / LKR {price.toFixed(2)} ({percentage}%)
       </p>
     </div>
   );

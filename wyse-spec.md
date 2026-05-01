@@ -96,7 +96,7 @@ const FundSchema = new mongoose.Schema({
 export default mongoose.models.Fund || mongoose.model('Fund', FundSchema);
 ```
 
-### Collection: `agent_logs`
+### Collection: `agentlogs`
 
 ```js
 // models/AgentLog.js
@@ -299,8 +299,8 @@ Rules:
 ```
 The user pasted this text: "{rawInput}"
 
-Extract the product name, estimate a realistic market price in USD, and pick a tier.
-Tier rules: high = over $200, mid = $50–$200, low = under $50.
+Extract the product name, estimate a realistic market price in LKR, and pick a tier.
+Tier rules: high = over LKR 200,000, mid = LKR 50,000–200,000, low = under LKR 50,000.
 Also suggest zone: "incubator" (impulse/new desire) or "definite" (they clearly need it).
 
 Return ONLY valid JSON — no explanation, no markdown:

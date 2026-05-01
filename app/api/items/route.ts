@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
     await connectDB();
 
     const zone = request.nextUrl.searchParams.get("zone");
-    const filter: Record<string, unknown> = { status: { $ne: "dropped" } };
+    const filter: Record<string, unknown> = { status: { $ne: "removed" } };
 
     if (zone) {
       filter.zone = zone;
@@ -33,12 +33,28 @@ export async function POST(request: NextRequest) {
     await connectDB();
 
     const body = await request.json();
-    if (body?.zone === "incubator") {
-      const inSevenDays = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-      body.promoteAfter = inSevenDays;
-    }
+    // zone defaults to 'wishlist'
+    const zone = body?.zone ?? 'wishlist';
+    const priority = body?.priority ?? 2;
+    // auto-calc tier from price
+    const { tierFromPrice } = await import('@/lib/tierFromPrice');
+    const tier = tierFromPrice(Number(body.price));
 
-    const item = await Item.create(body);
+    const item = await Item.create({
+      name: body.name,
+      price: body.price,
+      funded: body.funded ?? 0,
+      zone,
+      priority,
+      tier,
+      status: body.status ?? 'active',
+      notes: body.notes ?? '',
+      url: body.url ?? '',
+      imageUrl: body.imageUrl ?? '',
+      aiSuggested: body.aiSuggested ?? false,
+      tags: body.tags ?? [],
+      addedAt: body.addedAt ?? undefined,
+    });
     return NextResponse.json(item, { status: 201 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to create item";

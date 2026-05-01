@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
   await connectDB();
 
   const body = await request.json();
-  const prompt = `You are a financial discipline assistant. A user has added an item to their impulse wishlist.\n\nItem: "${body?.name}"\nPrice: ${body?.price}\nTheir current High-tier savings goal: "${body?.highTierGoal}" at ${body?.highTierProgress}% funded.\n\nAsk ONE sharp, non-judgmental question that makes them justify this purchase logically.\nThe question must be under 30 words. Do not lecture. Just ask the question.`;
+  const prompt = `You are a financial discipline assistant. A user has added an item to their wishlist.\n\nItem: "${body?.name}"\nPrice: LKR ${body?.price}\nTheir current Big-tier savings goal: "${body?.highTierGoal}" at ${body?.highTierProgress}% funded.\n\nAsk ONE sharp, non-judgmental question that makes them justify this purchase logically.\nThe question must be under 30 words. Do not lecture. Just ask the question.`;
 
   try {
     const result = await askGemini(prompt);

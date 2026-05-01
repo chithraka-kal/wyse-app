@@ -7,8 +7,8 @@ import AgentLog from "@/models/AgentLog";
 type CategoriseResult = {
   name: string;
   price: number;
-  tier: "high" | "mid" | "low";
-  zone: "incubator" | "definite";
+  priority: 1 | 2 | 3;
+  zone: "wishlist" | "saving";
 };
 
 export async function POST(request: NextRequest) {
@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json();
 
-  const prompt = `The user pasted this text: "${body?.rawInput}"\n\nExtract the product name, estimate a realistic market price in USD, and pick a tier.\nTier rules: high = over $200, mid = $50-$200, low = under $50.\nAlso suggest zone: "incubator" (impulse/new desire) or "definite" (they clearly need it).\n\nReturn ONLY valid JSON - no explanation, no markdown:\n{ "name": "...", "price": number, "tier": "high"|"mid"|"low", "zone": "incubator"|"definite" }`;
+  const prompt = `The user pasted this text: "${body?.rawInput}"\n\nExtract the product name, estimate a realistic market price in LKR, and suggest a priority (1 = urgent, 2 = normal, 3 = low).\nAlso suggest zone: "wishlist" (impulse/new desire) or "saving" (actively saving for it).\n\nReturn ONLY valid JSON - no explanation, no markdown:\n{ "name": "...", "price": number, "priority": 1|2|3, "zone": "wishlist"|"saving" }`;
 
   try {
     const result = await askGemini(prompt);

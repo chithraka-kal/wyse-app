@@ -142,7 +142,7 @@ export default function AllocateFundsModal({
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold text-slate-900">Allocate funds</h2>
-            <p className="text-sm text-slate-600">Available: ${fund.unallocated.toFixed(2)}</p>
+            <p className="text-sm text-slate-600">Available: LKR {fund.unallocated.toFixed(2)}</p>
           </div>
           <button
             type="button"
@@ -189,8 +189,8 @@ export default function AllocateFundsModal({
         </div>
 
         <div className="rounded-xl bg-slate-50 p-3 text-sm text-slate-700">
-          <p>Allocated: ${allocatedTotal.toFixed(2)}</p>
-          <p>Remaining: ${remaining.toFixed(2)}</p>
+          <p>Allocated: LKR {allocatedTotal.toFixed(2)}</p>
+          <p>Remaining: LKR {remaining.toFixed(2)}</p>
           {exceeds ? (
             <p className="font-medium text-red-600">Allocated amount exceeds available funds.</p>
           ) : null}

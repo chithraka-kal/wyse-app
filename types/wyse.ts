@@ -1,6 +1,7 @@
-export type Zone = "incubator" | "definite";
-export type Tier = "high" | "mid" | "low";
-export type ItemStatus = "active" | "done" | "dropped";
+export type Zone = 'wishlist' | 'saving';
+export type Tier = 'big' | 'medium' | 'small';
+export type ItemStatus = 'active' | 'done' | 'removed';
+export type Priority = 1 | 2 | 3;
 
 export type Item = {
   _id: string;
@@ -10,7 +11,7 @@ export type Item = {
   zone: Zone;
   tier: Tier | null;
   status: ItemStatus;
-  promoteAfter: string | null;
+  priority: Priority;
   notes: string;
   url: string;
   imageUrl: string;

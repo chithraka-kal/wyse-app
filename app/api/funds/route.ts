@@ -39,9 +39,29 @@ export async function POST(request: NextRequest) {
       amount,
       source: body?.source || "manual",
       unallocated: amount,
+      note: body?.note || '',
     });
 
-    return NextResponse.json(fund, { status: 201 });
+    // If applyToItemId/applyAmount provided, allocate immediately
+    if (body?.applyToItemId && Number(body?.applyAmount) > 0) {
+      const applyAmount = Number(body.applyAmount);
+      const Item = (await import('@/models/Item')).default;
+      const item = await Item.findById(body.applyToItemId);
+      if (item) {
+        // push allocation
+        fund.allocations = fund.allocations || [];
+        fund.allocations.push({ itemId: item._id, amount: applyAmount });
+        fund.unallocated = Math.max(0, fund.unallocated - applyAmount);
+        await fund.save();
+
+        // update item funded
+        item.funded = (item.funded || 0) + applyAmount;
+        if (item.funded >= item.price) item.status = 'done';
+        await item.save();
+      }
+    }
+
+    return NextResponse.json(await fund.populate('allocations.itemId'), { status: 201 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to create fund";
     return NextResponse.json({ error: message }, { status: 500 });

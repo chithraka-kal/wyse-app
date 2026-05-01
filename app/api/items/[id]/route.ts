@@ -38,6 +38,21 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const { id } = await params;
     const updates = await request.json();
 
+    // If price is updated, recalc tier
+    if (updates.price !== undefined) {
+      const { tierFromPrice } = await import('@/lib/tierFromPrice');
+      updates.tier = tierFromPrice(Number(updates.price));
+    }
+
+    // If zone is changed to 'saving' and tier not provided, recalc from current price
+    if (updates.zone === 'saving' && updates.tier === undefined) {
+      const current = await Item.findById(id);
+      if (current) {
+        const { tierFromPrice } = await import('@/lib/tierFromPrice');
+        updates.tier = tierFromPrice(Number(current.price));
+      }
+    }
+
     const item = await Item.findByIdAndUpdate(id, { $set: updates }, { new: true });
 
     if (!item) {
@@ -61,7 +76,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     const { id } = await params;
     const item = await Item.findByIdAndUpdate(
       id,
-      { $set: { status: "dropped" } },
+      { $set: { status: 'removed' } },
       { new: true },
     );
 
