@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/db";
-import { requireAdmin } from "@/lib/auth";
+import { requireAdmin, resolveAuthContext } from "@/lib/auth";
 import Item from "@/models/Item";
 
 type RouteParams = {
@@ -8,14 +8,21 @@ type RouteParams = {
 };
 
 export async function GET(request: NextRequest, { params }: RouteParams) {
-  const unauthorized = requireAdmin(request);
+  const unauthorized = await requireAdmin(request);
   if (unauthorized) return unauthorized;
 
   try {
     await connectDB();
 
     const { id } = await params;
-    const item = await Item.findById(id);
+    const auth = await resolveAuthContext(request);
+    const query: Record<string, unknown> = { _id: id };
+
+    if (auth && !auth.isAdmin && auth.userId) {
+      query.userId = auth.userId;
+    }
+
+    const item = await Item.findOne(query);
 
     if (!item) {
       return NextResponse.json({ error: "Item not found" }, { status: 404 });
@@ -29,13 +36,14 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 }
 
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
-  const unauthorized = requireAdmin(request);
+  const unauthorized = await requireAdmin(request);
   if (unauthorized) return unauthorized;
 
   try {
     await connectDB();
 
     const { id } = await params;
+    const auth = await resolveAuthContext(request);
     const updates = await request.json();
 
     // If price is updated, recalc tier
@@ -53,7 +61,12 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       }
     }
 
-    const item = await Item.findByIdAndUpdate(id, { $set: updates }, { new: true });
+    const query: Record<string, unknown> = { _id: id };
+    if (auth && !auth.isAdmin && auth.userId) {
+      query.userId = auth.userId;
+    }
+
+    const item = await Item.findOneAndUpdate(query, { $set: updates }, { new: true });
 
     if (!item) {
       return NextResponse.json({ error: "Item not found" }, { status: 404 });
@@ -67,18 +80,20 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 }
 
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
-  const unauthorized = requireAdmin(request);
+  const unauthorized = await requireAdmin(request);
   if (unauthorized) return unauthorized;
 
   try {
     await connectDB();
 
     const { id } = await params;
-    const item = await Item.findByIdAndUpdate(
-      id,
-      { $set: { status: 'removed' } },
-      { new: true },
-    );
+    const auth = await resolveAuthContext(request);
+    const query: Record<string, unknown> = { _id: id };
+    if (auth && !auth.isAdmin && auth.userId) {
+      query.userId = auth.userId;
+    }
+
+    const item = await Item.findOneAndUpdate(query, { $set: { status: 'removed' } }, { new: true });
 
     if (!item) {
       return NextResponse.json({ error: "Item not found" }, { status: 404 });

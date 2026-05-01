@@ -13,6 +13,7 @@ const FundSchema = new mongoose.Schema({
   amount: { type: Number, required: true },
   source: { type: String, default: "manual" },
   unallocated: { type: Number, required: true },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
   allocations: [AllocationSchema],
   aiAssisted: { type: Boolean, default: false },
   receivedAt: { type: Date, default: Date.now },

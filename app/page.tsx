@@ -1,20 +1,34 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import AddItemModal from "@/components/AddItemModal";
 import AllocateFundsModal from "@/components/AllocateFundsModal";
 import ItemCard from "@/components/ItemCard";
 import { getBuyNextItem } from "@/lib/buyNext";
 import { Fund, Item } from "@/types/wyse";
 
-const adminSecret = process.env.NEXT_PUBLIC_ADMIN_SECRET ?? "";
+type SessionUser = {
+  _id: string;
+  username: string;
+  displayName: string;
+};
 
 export default function Home() {
   const [items, setItems] = useState<Item[]>([]);
   const [funds, setFunds] = useState<Fund[]>([]);
+  const [currentUser, setCurrentUser] = useState<SessionUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [authLoading, setAuthLoading] = useState(true);
   const [showAddItem, setShowAddItem] = useState(false);
   const [allocationFund, setAllocationFund] = useState<Fund | null>(null);
+  const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  const [authSubmitting, setAuthSubmitting] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [authForm, setAuthForm] = useState({
+    displayName: "",
+    username: "",
+    password: "",
+  });
 
   const wishlistItems = useMemo(
     () =>
@@ -60,9 +74,6 @@ export default function Home() {
   async function loadItems() {
     try {
       const response = await fetch("/api/items", {
-        headers: {
-          "x-admin-secret": adminSecret,
-        },
       });
       if (!response.ok) {
         throw new Error("Failed to load items");
@@ -79,9 +90,6 @@ export default function Home() {
   async function loadFunds() {
     try {
       const response = await fetch("/api/funds", {
-        headers: {
-          "x-admin-secret": adminSecret,
-        },
       });
       if (!response.ok) {
         throw new Error("Failed to load funds");
@@ -94,20 +102,43 @@ export default function Home() {
   }
 
   useEffect(() => {
+    async function loadCurrentUser() {
+      try {
+        const response = await fetch("/api/auth/me");
+        if (!response.ok) {
+          setCurrentUser(null);
+          return;
+        }
+
+        const data = (await response.json()) as { user: SessionUser };
+        setCurrentUser(data.user);
+      } catch {
+        setCurrentUser(null);
+      } finally {
+        setAuthLoading(false);
+      }
+    }
+
+    void loadCurrentUser();
+  }, []);
+
+  useEffect(() => {
+    if (!currentUser) {
+      setItems([]);
+      setFunds([]);
+      setLoading(false);
+      return;
+    }
+
     let cancelled = false;
 
     async function init() {
+      setLoading(true);
       try {
         const [itemsResponse, fundsResponse] = await Promise.all([
           fetch("/api/items", {
-            headers: {
-              "x-admin-secret": adminSecret,
-            },
           }),
           fetch("/api/funds", {
-            headers: {
-              "x-admin-secret": adminSecret,
-            },
           }),
         ]);
 
@@ -141,14 +172,62 @@ export default function Home() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [currentUser]);
+
+  async function handleAuthSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setAuthSubmitting(true);
+    setAuthError(null);
+
+    try {
+      const endpoint = authMode === "login" ? "/api/auth/login" : "/api/auth/register";
+      const payload =
+        authMode === "login"
+          ? {
+              username: authForm.username,
+              password: authForm.password,
+            }
+          : {
+              displayName: authForm.displayName,
+              username: authForm.username,
+              password: authForm.password,
+            };
+
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.error || "Authentication failed");
+      }
+
+      setCurrentUser(data.user as SessionUser);
+      setAuthForm({ displayName: "", username: "", password: "" });
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : "Authentication failed");
+    } finally {
+      setAuthSubmitting(false);
+    }
+  }
+
+  async function handleLogout() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    setCurrentUser(null);
+    setItems([]);
+    setFunds([]);
+    setAllocationFund(null);
+  }
 
   async function handleStartSaving(item: Item) {
     await fetch(`/api/items/${item._id}`, {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
-        "x-admin-secret": adminSecret,
       },
       body: JSON.stringify({ zone: "saving" }),
     });
@@ -159,9 +238,7 @@ export default function Home() {
   async function handleRemove(item: Item) {
     await fetch(`/api/items/${item._id}`, {
       method: "DELETE",
-      headers: {
-        "x-admin-secret": adminSecret,
-      },
+      headers: {},
     });
 
     await loadItems();
@@ -181,7 +258,6 @@ export default function Home() {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-admin-secret": adminSecret,
       },
       body: JSON.stringify({ amount, source: "manual" }),
     });
@@ -210,7 +286,6 @@ export default function Home() {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-admin-secret": adminSecret,
       },
       body: JSON.stringify({
         amount,
@@ -232,6 +307,96 @@ export default function Home() {
   const mediumItems = savingItems.filter((item) => item.tier === "medium");
   const smallItems = savingItems.filter((item) => item.tier === "small");
 
+  if (authLoading) {
+    return (
+      <main className="grid min-h-screen place-items-center bg-[radial-gradient(circle_at_top_left,_#d6f5ec,_#f8fafc_55%)] p-4 text-slate-900">
+        <div className="rounded-2xl border border-slate-200 bg-white px-6 py-4 shadow-sm">
+          Loading session...
+        </div>
+      </main>
+    );
+  }
+
+  if (!currentUser) {
+    return (
+      <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,_#d6f5ec,_#f8fafc_55%)] p-4 text-slate-900 md:p-8">
+        <div className="mx-auto flex min-h-[calc(100vh-2rem)] max-w-md items-center justify-center md:min-h-[calc(100vh-4rem)]">
+          <form
+            onSubmit={handleAuthSubmit}
+            className="w-full space-y-4 rounded-3xl border border-teal-200 bg-white p-6 shadow-sm"
+          >
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-teal-800">Wyse</p>
+              <h1 className="text-3xl font-bold text-[#0F6E56]">{authMode === "login" ? "Sign in" : "Create account"}</h1>
+              <p className="mt-1 text-sm text-slate-600">
+                Each user gets a private dashboard for their own Wishlist, Saving For, and Completed items.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={() => setAuthMode("login")}
+                className={`mr-2 rounded-full px-3 py-1 text-sm font-medium ${authMode === "login" ? "bg-[#0F6E56] text-white" : "bg-slate-100 text-slate-700"}`}
+              >
+                Login
+              </button>
+              <button
+                type="button"
+                onClick={() => setAuthMode("register")}
+                className={`rounded-full px-3 py-1 text-sm font-medium ${authMode === "register" ? "bg-[#0F6E56] text-white" : "bg-slate-100 text-slate-700"}`}
+              >
+                Register
+              </button>
+            </div>
+
+            {authMode === "register" ? (
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-slate-700">Display name</label>
+                <input
+                  value={authForm.displayName}
+                  onChange={(event) => setAuthForm((prev) => ({ ...prev, displayName: event.target.value }))}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-[#0F6E56]"
+                  required
+                />
+              </div>
+            ) : null}
+
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-slate-700">Username</label>
+              <input
+                value={authForm.username}
+                onChange={(event) => setAuthForm((prev) => ({ ...prev, username: event.target.value }))}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-[#0F6E56]"
+                required
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-slate-700">Password</label>
+              <input
+                value={authForm.password}
+                onChange={(event) => setAuthForm((prev) => ({ ...prev, password: event.target.value }))}
+                type="password"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-[#0F6E56]"
+                required
+              />
+            </div>
+
+            {authError ? <p className="text-sm font-medium text-red-600">{authError}</p> : null}
+
+            <button
+              disabled={authSubmitting}
+              className="w-full rounded-lg bg-[#0F6E56] px-4 py-2 font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+            >
+              {authSubmitting ? "Please wait..." : authMode === "login" ? "Login" : "Create account"}
+            </button>
+          </form>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,_#d6f5ec,_#f8fafc_55%)] p-4 text-slate-900 md:p-8">
       <div className="mx-auto max-w-7xl space-y-6">
@@ -239,12 +404,14 @@ export default function Home() {
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-teal-800">Wyse</p>
             <h1 className="text-3xl font-bold text-[#0F6E56]">Spend with intention</h1>
+            <p className="text-sm font-medium text-slate-700">Signed in as {currentUser.displayName}</p>
             <p className="text-sm text-slate-600">
               Total funded LKR {totals.totalFunded.toFixed(2)} / needed LKR {totals.totalNeeded.toFixed(2)}
             </p>
             <p className="text-sm text-slate-600">Available savings: LKR {availableSavings.toFixed(2)}</p>
           </div>
           <div className="flex flex-wrap gap-2">
+
             <button
               type="button"
               onClick={() => setShowAddItem(true)}
@@ -258,6 +425,13 @@ export default function Home() {
               className="rounded-lg bg-[#EF9F27] px-4 py-2 text-sm font-semibold text-slate-900"
             >
               Log funds
+            </button>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700"
+            >
+              Logout
             </button>
           </div>
         </header>

@@ -4,8 +4,6 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Fund, Item } from "@/types/wyse";
 
-const adminSecret = process.env.NEXT_PUBLIC_ADMIN_SECRET ?? "";
-
 function getItemName(itemId: Fund["allocations"][number]["itemId"]) {
   if (!itemId) return "Unknown item";
   if (typeof itemId === "string") return itemId;
@@ -18,7 +16,6 @@ export default function FundsPage() {
   useEffect(() => {
     async function loadFunds() {
       const response = await fetch("/api/funds", {
-        headers: { "x-admin-secret": adminSecret },
       });
       if (!response.ok) return;
       const data = (await response.json()) as Fund[];

@@ -4,6 +4,7 @@ const ItemSchema = new mongoose.Schema({
   name: { type: String, required: true },
   price: { type: Number, required: true },
   funded: { type: Number, default: 0 },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
   zone: { type: String, enum: ['wishlist', 'saving'], required: true },
   tier: { type: String, enum: ['big', 'medium', 'small'], default: null },
   status: {

@@ -9,8 +9,6 @@ type AddItemModalProps = {
   onAdded: (item: Item) => void;
 };
 
-const adminSecret = process.env.NEXT_PUBLIC_ADMIN_SECRET ?? "";
-
 export default function AddItemModal({ onClose, onAdded }: AddItemModalProps) {
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
@@ -37,7 +35,6 @@ export default function AddItemModal({ onClose, onAdded }: AddItemModalProps) {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "x-admin-secret": adminSecret,
           },
           body: JSON.stringify({ rawInput: name }),
         });
@@ -76,7 +73,6 @@ export default function AddItemModal({ onClose, onAdded }: AddItemModalProps) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-admin-secret": adminSecret,
         },
         body: JSON.stringify(payload),
       });
@@ -89,7 +85,7 @@ export default function AddItemModal({ onClose, onAdded }: AddItemModalProps) {
       onAdded(created);
       onClose();
     } catch {
-      alert("Could not create item. Check your admin secret and try again.");
+      alert("Could not create item. Please try again.");
     } finally {
       setIsLoading(false);
     }

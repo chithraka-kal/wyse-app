@@ -5,6 +5,7 @@ export type Priority = 1 | 2 | 3;
 
 export type Item = {
   _id: string;
+  userId?: string | null;
   name: string;
   price: number;
   funded: number;
@@ -28,6 +29,7 @@ export type FundAllocation = {
 
 export type Fund = {
   _id: string;
+  userId?: string | null;
   amount: number;
   source: string;
   unallocated: number;

@@ -10,7 +10,7 @@ type Allocation = {
 };
 
 export async function POST(request: NextRequest) {
-  const unauthorized = requireAdmin(request);
+  const unauthorized = await requireAdmin(request);
   if (unauthorized) return unauthorized;
 
   await connectDB();

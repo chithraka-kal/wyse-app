@@ -1,17 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/db";
-import { requireAdmin } from "@/lib/auth";
+import { requireAdmin, resolveAuthContext } from "@/lib/auth";
 import Item from "@/models/Item";
 
 export async function GET(request: NextRequest) {
-  const unauthorized = requireAdmin(request);
+  const unauthorized = await requireAdmin(request);
   if (unauthorized) return unauthorized;
 
   try {
     await connectDB();
 
+    const auth = await resolveAuthContext(request);
+
     const zone = request.nextUrl.searchParams.get("zone");
     const filter: Record<string, unknown> = { status: { $ne: "removed" } };
+
+    if (auth && !auth.isAdmin && auth.userId) {
+      filter.userId = auth.userId;
+    }
 
     if (zone) {
       filter.zone = zone;
@@ -26,11 +32,13 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const unauthorized = requireAdmin(request);
+  const unauthorized = await requireAdmin(request);
   if (unauthorized) return unauthorized;
 
   try {
     await connectDB();
+
+    const auth = await resolveAuthContext(request);
 
     const body = await request.json();
     // zone defaults to 'wishlist'
@@ -47,6 +55,7 @@ export async function POST(request: NextRequest) {
       zone,
       priority,
       tier,
+      userId: auth && !auth.isAdmin ? auth.userId : null,
       status: body.status ?? 'active',
       notes: body.notes ?? '',
       url: body.url ?? '',

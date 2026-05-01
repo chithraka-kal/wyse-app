@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/db";
-import { requireAdmin } from "@/lib/auth";
+import { requireAdmin, resolveAuthContext } from "@/lib/auth";
 import Fund from "@/models/Fund";
 import Item from "@/models/Item";
 
@@ -14,13 +14,14 @@ type AllocationInput = {
 };
 
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
-  const unauthorized = requireAdmin(request);
+  const unauthorized = await requireAdmin(request);
   if (unauthorized) return unauthorized;
 
   try {
     await connectDB();
 
     const { id } = await params;
+    const auth = await resolveAuthContext(request);
     const body = await request.json();
     const allocations: AllocationInput[] = Array.isArray(body?.allocations)
       ? body.allocations
@@ -30,7 +31,12 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "Allocations are required" }, { status: 400 });
     }
 
-    const fund = await Fund.findById(id);
+    const fundQuery: Record<string, unknown> = { _id: id };
+    if (auth && !auth.isAdmin && auth.userId) {
+      fundQuery.userId = auth.userId;
+    }
+
+    const fund = await Fund.findOne(fundQuery);
     if (!fund) {
       return NextResponse.json({ error: "Fund not found" }, { status: 404 });
     }
@@ -52,11 +58,12 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         );
       }
 
-      const item = await Item.findByIdAndUpdate(
-        allocation.itemId,
-        { $inc: { funded: amount } },
-        { new: true },
-      );
+      const itemQuery: Record<string, unknown> = { _id: allocation.itemId };
+      if (auth && !auth.isAdmin && auth.userId) {
+        itemQuery.userId = auth.userId;
+      }
+
+      const item = await Item.findOneAndUpdate(itemQuery, { $inc: { funded: amount } }, { new: true });
 
       if (!item) {
         return NextResponse.json({ error: `Item not found: ${allocation.itemId}` }, { status: 404 });

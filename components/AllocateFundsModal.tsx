@@ -11,8 +11,6 @@ type AllocateFundsModalProps = {
   onAllocated: () => void;
 };
 
-const adminSecret = process.env.NEXT_PUBLIC_ADMIN_SECRET ?? "";
-
 export default function AllocateFundsModal({
   fund,
   items,
@@ -32,7 +30,6 @@ export default function AllocateFundsModal({
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "x-admin-secret": adminSecret,
           },
           body: JSON.stringify({
             fundId: fund._id,
@@ -115,7 +112,6 @@ export default function AllocateFundsModal({
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
-          "x-admin-secret": adminSecret,
         },
         body: JSON.stringify({ allocations }),
       });
