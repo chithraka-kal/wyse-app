@@ -20,7 +20,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [authLoading, setAuthLoading] = useState(true);
   const [showAddItem, setShowAddItem] = useState(false);
-  const [allocationFund, setAllocationFund] = useState<Fund | null>(null);
+  const [allocationAmount, setAllocationAmount] = useState<number | null>(null);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [authSubmitting, setAuthSubmitting] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
@@ -220,7 +220,7 @@ export default function Home() {
     setCurrentUser(null);
     setItems([]);
     setFunds([]);
-    setAllocationFund(null);
+    setAllocationAmount(null);
   }
 
   async function handleStartSaving(item: Item) {
@@ -254,22 +254,7 @@ export default function Home() {
       return;
     }
 
-    const response = await fetch("/api/funds", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ amount, source: "manual" }),
-    });
-
-    if (!response.ok) {
-      alert("Could not create fund entry.");
-      return;
-    }
-
-    const fund = (await response.json()) as Fund;
-    setAllocationFund(fund);
-    await loadFunds();
+    setAllocationAmount(amount);
   }
 
   async function handleQuickAddFunds(item: Item) {
@@ -528,11 +513,11 @@ export default function Home() {
         />
       ) : null}
 
-      {allocationFund ? (
+      {allocationAmount !== null ? (
         <AllocateFundsModal
-          fund={allocationFund}
+          amount={allocationAmount}
           items={savingItems}
-          onClose={() => setAllocationFund(null)}
+          onClose={() => setAllocationAmount(null)}
           onAllocated={async () => {
             await Promise.all([loadItems(), loadFunds()]);
           }}

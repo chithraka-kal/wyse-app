@@ -5,14 +5,14 @@ import AiBadge from "@/components/AiBadge";
 import { Fund, FundAllocation, Item } from "@/types/wyse";
 
 type AllocateFundsModalProps = {
-  fund: Fund;
+  amount: number;
   items: Item[];
   onClose: () => void;
   onAllocated: () => void;
 };
 
 export default function AllocateFundsModal({
-  fund,
+  amount,
   items,
   onClose,
   onAllocated,
@@ -32,8 +32,7 @@ export default function AllocateFundsModal({
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            fundId: fund._id,
-            amount: fund.unallocated,
+            amount,
             items,
           }),
         });
@@ -45,9 +44,9 @@ export default function AllocateFundsModal({
           const nextSuggested: Record<string, boolean> = {};
 
           for (const allocation of data.result as FundAllocation[]) {
-            const amount = Number(allocation.amount);
-            if (Number.isFinite(amount) && amount > 0) {
-              nextValues[allocation.itemId] = amount;
+            const allocationAmount = Number(allocation.amount);
+            if (Number.isFinite(allocationAmount) && allocationAmount > 0) {
+              nextValues[allocation.itemId] = allocationAmount;
               nextSuggested[allocation.itemId] = true;
             }
           }
@@ -65,20 +64,24 @@ export default function AllocateFundsModal({
       }
     }
 
+    setLoadingAi(true);
+    setAiAvailable(true);
+    setAmountByItem({});
+    setSuggested({});
     void suggest();
-  }, [fund._id, fund.unallocated, items]);
+  }, [amount, items]);
 
   const allocatedTotal = useMemo(
     () =>
       Object.values(amountByItem).reduce(
-        (sum, amount) => sum + (Number.isFinite(amount) ? amount : 0),
+        (sum, value) => sum + (Number.isFinite(value) ? value : 0),
         0,
       ),
     [amountByItem],
   );
 
-  const remaining = Math.max(0, fund.unallocated - allocatedTotal);
-  const exceeds = allocatedTotal > fund.unallocated;
+  const remaining = Math.max(0, amount - allocatedTotal);
+  const exceeds = allocatedTotal > amount;
 
   function setItemAmount(itemId: string, value: string) {
     const parsed = Number(value);
@@ -89,7 +92,23 @@ export default function AllocateFundsModal({
     }));
   }
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function createFund() {
+    const response = await fetch("/api/funds", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ amount, source: aiAvailable ? "ai" : "manual" }),
+    });
+
+    if (!response.ok) {
+      throw new Error("Could not save funds");
+    }
+
+    return (await response.json()) as Fund;
+  }
+
+  async function submitAllocations(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (exceeds) {
@@ -97,17 +116,18 @@ export default function AllocateFundsModal({
     }
 
     const allocations = Object.entries(amountByItem)
-      .filter(([, amount]) => amount > 0)
-      .map(([itemId, amount]) => ({ itemId, amount }));
+      .filter(([, value]) => value > 0)
+      .map(([itemId, value]) => ({ itemId, amount: value }));
 
     if (allocations.length === 0) {
-      alert("Enter at least one allocation amount.");
       return;
     }
 
     setSubmitting(true);
 
     try {
+      const fund = await createFund();
+
       const response = await fetch(`/api/funds/${fund._id}`, {
         method: "PATCH",
         headers: {
@@ -129,16 +149,30 @@ export default function AllocateFundsModal({
     }
   }
 
+  async function skipAllocation() {
+    setSubmitting(true);
+
+    try {
+      await createFund();
+      onAllocated();
+      onClose();
+    } catch {
+      alert("Could not save funds. Please retry.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-slate-900/40 p-4">
       <form
-        onSubmit={handleSubmit}
+        onSubmit={submitAllocations}
         className="w-full max-w-2xl space-y-4 rounded-2xl bg-white p-6 shadow-xl"
       >
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold text-slate-900">Allocate funds</h2>
-            <p className="text-sm text-slate-600">Available: LKR {fund.unallocated.toFixed(2)}</p>
+            <p className="text-sm text-slate-600">Available: LKR {amount.toFixed(2)}</p>
           </div>
           <button
             type="button"
@@ -192,12 +226,23 @@ export default function AllocateFundsModal({
           ) : null}
         </div>
 
-        <button
-          disabled={submitting || exceeds}
-          className="w-full rounded-lg bg-[#0F6E56] px-4 py-2 font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
-        >
-          {submitting ? "Saving..." : "Confirm allocations"}
-        </button>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            disabled={submitting}
+            onClick={skipAllocation}
+            className="flex-1 rounded-lg bg-slate-400 px-4 py-2 font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+          >
+            {submitting ? "Saving..." : "Skip allocation"}
+          </button>
+          <button
+            type="submit"
+            disabled={submitting || exceeds || allocatedTotal === 0}
+            className="flex-1 rounded-lg bg-[#0F6E56] px-4 py-2 font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+          >
+            {submitting ? "Saving..." : "Confirm allocations"}
+          </button>
+        </div>
       </form>
     </div>
   );
