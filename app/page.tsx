@@ -36,6 +36,14 @@ export default function Home() {
     [items],
   );
 
+  const completedItems = useMemo(
+    () =>
+      items
+        .filter((item) => item.status === "done")
+        .sort((a, b) => +new Date(b.addedAt) - +new Date(a.addedAt)),
+    [items],
+  );
+
   const totals = useMemo(() => {
     const totalNeeded = savingItems.reduce((sum, item) => sum + item.price, 0);
     const totalFunded = savingItems.reduce((sum, item) => sum + item.funded, 0);
@@ -282,10 +290,57 @@ export default function Home() {
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
             <h2 className="mb-3 text-xl font-semibold text-slate-900">Saving For</h2>
             <div className="grid max-h-[65vh] gap-3 overflow-y-auto pr-1 md:grid-cols-3">
-              <TierColumn title="Big" items={bigItems} onAddFunds={handleQuickAddFunds} nextUpId={nextUpItem?._id} />
-              <TierColumn title="Medium" items={mediumItems} onAddFunds={handleQuickAddFunds} nextUpId={nextUpItem?._id} />
-              <TierColumn title="Small" items={smallItems} onAddFunds={handleQuickAddFunds} nextUpId={nextUpItem?._id} />
+              <TierColumn
+                title="Big"
+                items={bigItems}
+                onAddFunds={handleQuickAddFunds}
+                onRemove={handleRemove}
+                nextUpId={nextUpItem?._id}
+              />
+              <TierColumn
+                title="Medium"
+                items={mediumItems}
+                onAddFunds={handleQuickAddFunds}
+                onRemove={handleRemove}
+                nextUpId={nextUpItem?._id}
+              />
+              <TierColumn
+                title="Small"
+                items={smallItems}
+                onAddFunds={handleQuickAddFunds}
+                onRemove={handleRemove}
+                nextUpId={nextUpItem?._id}
+              />
             </div>
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm">
+          <h2 className="mb-3 text-xl font-semibold text-slate-900">Completed</h2>
+          <div className="max-h-[45vh] space-y-3 overflow-y-auto pr-1">
+            {loading ? <p className="text-sm text-slate-600">Loading...</p> : null}
+            {!loading && completedItems.length === 0 ? (
+              <p className="text-sm text-slate-600">No completed items yet.</p>
+            ) : null}
+
+            {completedItems.map((item) => (
+              <article
+                key={item._id}
+                className="rounded-xl border border-emerald-100 bg-emerald-50/40 p-3"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-slate-900">{item.name}</h3>
+                    <p className="text-xs text-slate-600">
+                      LKR {item.price.toFixed(2)} • Funded LKR {item.funded.toFixed(2)}
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800">
+                    Completed
+                  </span>
+                </div>
+              </article>
+            ))}
           </div>
         </section>
       </div>
@@ -317,17 +372,24 @@ type TierColumnProps = {
   title: string;
   items: Item[];
   onAddFunds: (item: Item) => void;
+  onRemove: (item: Item) => void;
   nextUpId?: string;
 };
 
-function TierColumn({ title, items, onAddFunds, nextUpId }: TierColumnProps) {
+function TierColumn({ title, items, onAddFunds, onRemove, nextUpId }: TierColumnProps) {
   return (
     <div className="space-y-2 rounded-xl bg-slate-50 p-2">
       <h3 className="px-1 text-sm font-semibold uppercase tracking-wide text-slate-700">{title}</h3>
       <div className="space-y-2">
         {items.length === 0 ? <p className="px-1 text-xs text-slate-500">No items</p> : null}
         {items.map((item) => (
-          <ItemCard key={item._id} item={item} onAddFunds={onAddFunds} isNextUp={item._id === nextUpId} />
+          <ItemCard
+            key={item._id}
+            item={item}
+            onAddFunds={onAddFunds}
+            onRemove={onRemove}
+            isNextUp={item._id === nextUpId}
+          />
         ))}
       </div>
     </div>

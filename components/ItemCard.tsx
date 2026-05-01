@@ -57,6 +57,13 @@ export default function ItemCard({ item, isNextUp, onStartSaving, onRemove, onAd
             >
               Add Savings
             </button>
+            <button
+              type="button"
+              onClick={() => onRemove?.(item)}
+              className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700"
+            >
+              Remove
+            </button>
             {item.priority === 1 ? (
               <span className="inline-flex items-center gap-2 text-sm text-amber-600">
                 <span className="h-2 w-2 rounded-full bg-amber-400" /> Urgent
