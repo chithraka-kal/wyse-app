@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
+import connectDB from "@/lib/db";
 import User from "@/models/User";
 
 const sessionCookieName = "wyse_session";
@@ -81,6 +82,7 @@ export async function getAuthenticatedUser(request: NextRequest) {
   const context = await resolveAuthContext(request);
   if (!context || context.isAdmin || !context.userId) return null;
 
+  await connectDB();
   return User.findById(context.userId).select("_id username displayName");
 }
 

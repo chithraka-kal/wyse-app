@@ -2,10 +2,10 @@ import mongoose from "mongoose";
 
 const ItemSchema = new mongoose.Schema({
   name: { type: String, required: true },
-  price: { type: Number, required: true },
+  price: { type: Number, default: 0 },
   funded: { type: Number, default: 0 },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
-  zone: { type: String, enum: ['wishlist', 'saving'], required: true },
+  zone: { type: String, enum: ['wishlist', 'saving', 'flash'], required: true },
   tier: { type: String, enum: ['big', 'medium', 'small'], default: null },
   status: {
     type: String,

@@ -1,62 +1,34 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import AiBadge from "@/components/AiBadge";
 import { Item, Zone, Priority } from "@/types/wyse";
 
-type AddItemModalProps = {
+type EditItemModalProps = {
+  item: Item;
   onClose: () => void;
-  onAdded: (item: Item) => void;
+  onUpdated: (updatedItem: Item) => void;
 };
 
-export default function AddItemModal({ onClose, onAdded }: AddItemModalProps) {
-  const [name, setName] = useState("");
-  const [price, setPrice] = useState("");
-  const [url, setUrl] = useState("");
-  const [notes, setNotes] = useState("");
-  const [zone, setZone] = useState<Zone>("wishlist");
-  const [priority, setPriority] = useState<Priority>(2);
+export default function EditItemModal({ item, onClose, onUpdated }: EditItemModalProps) {
+  const [name, setName] = useState(item.name);
+  const [price, setPrice] = useState(String(item.price));
+  const [url, setUrl] = useState(item.url || "");
+  const [notes, setNotes] = useState(item.notes || "");
+  const [zone, setZone] = useState<Zone>(item.zone);
+  const [priority, setPriority] = useState<Priority>(item.priority || 2);
   const [isLoading, setIsLoading] = useState(false);
-  const [isAiLoading, setIsAiLoading] = useState(false);
-  const [aiUnavailable, setAiUnavailable] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setIsLoading(true);
-    setAiUnavailable(false);
+    setError(null);
 
-    let computedPrice = Number(price);
-    let computedPriority: Priority = priority;
-
-    if (zone === "wishlist") {
-      setIsAiLoading(true);
-      try {
-        const aiRes = await fetch("/api/ai/categorise", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ rawInput: name }),
-        });
-
-        const aiData = await aiRes.json();
-        if (aiData?.aiAvailable && aiData?.result) {
-          if (Number.isFinite(Number(aiData.result.price))) {
-            computedPrice = Number(aiData.result.price);
-            setPrice(String(aiData.result.price));
-          }
-          if (aiData.result.priority && [1, 2, 3].includes(Number(aiData.result.priority))) {
-            computedPriority = Number(aiData.result.priority) as Priority;
-            setPriority(computedPriority);
-          }
-        } else {
-          setAiUnavailable(true);
-        }
-      } catch {
-        setAiUnavailable(true);
-      } finally {
-        setIsAiLoading(false);
-      }
+    const computedPrice = zone === "flash" && (price === "" || price === undefined) ? 0 : Number(price);
+    if (!Number.isFinite(computedPrice) || computedPrice < 0) {
+      setError("Please enter a valid price.");
+      setIsLoading(false);
+      return;
     }
 
     try {
@@ -64,13 +36,13 @@ export default function AddItemModal({ onClose, onAdded }: AddItemModalProps) {
         name,
         price: computedPrice,
         zone,
-        priority: computedPriority ?? priority,
+        priority,
         notes,
         url,
       };
 
-      const res = await fetch("/api/items", {
-        method: "POST",
+      const res = await fetch(`/api/items/${item._id}`, {
+        method: "PATCH",
         headers: {
           "Content-Type": "application/json",
         },
@@ -78,14 +50,14 @@ export default function AddItemModal({ onClose, onAdded }: AddItemModalProps) {
       });
 
       if (!res.ok) {
-        throw new Error("Failed to create item");
+        throw new Error("Failed to update item");
       }
 
-      const created = (await res.json()) as Item;
-      onAdded(created);
+      const updated = (await res.json()) as Item;
+      onUpdated(updated);
       onClose();
     } catch {
-      alert("Could not create item. Please try again.");
+      setError("Could not update item. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -98,11 +70,11 @@ export default function AddItemModal({ onClose, onAdded }: AddItemModalProps) {
         className="w-full max-w-lg space-y-4 rounded-2xl bg-white p-6 shadow-xl"
       >
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-slate-900">Add item</h2>
+          <h2 className="text-lg font-semibold text-slate-900">Edit item</h2>
           <button
             type="button"
             onClick={onClose}
-            className="text-sm font-medium text-slate-600"
+            className="text-sm font-medium text-slate-600 hover:text-slate-900"
           >
             Close
           </button>
@@ -110,17 +82,12 @@ export default function AddItemModal({ onClose, onAdded }: AddItemModalProps) {
 
         <div className="space-y-1">
           <label className="text-sm font-medium text-slate-700">Name</label>
-          <div className="flex items-center gap-2">
-            <input
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              required
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-[#0F6E56]"
-            />
-            {isAiLoading ? (
-              <span className="h-5 w-5 animate-spin rounded-full border-2 border-slate-300 border-t-[#0F6E56]" />
-            ) : null}
-          </div>
+          <input
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            required
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-[#0F6E56]"
+          />
         </div>
 
         <div className="space-y-1">
@@ -166,21 +133,27 @@ export default function AddItemModal({ onClose, onAdded }: AddItemModalProps) {
             <button
               type="button"
               onClick={() => setPriority(1)}
-              className={`rounded-md px-3 py-1 border ${priority === 1 ? 'bg-amber-200 border-amber-400' : 'border-slate-300'}`}
+              className={`rounded-md px-3 py-1 border text-sm font-medium transition-colors ${
+                priority === 1 ? "bg-amber-200 border-amber-400 text-amber-900" : "border-slate-300 text-slate-700 hover:bg-slate-50"
+              }`}
             >
               ! Urgent
             </button>
             <button
               type="button"
               onClick={() => setPriority(2)}
-              className={`rounded-md px-3 py-1 border ${priority === 2 ? 'bg-slate-200 border-slate-400' : 'border-slate-300'}`}
+              className={`rounded-md px-3 py-1 border text-sm font-medium transition-colors ${
+                priority === 2 ? "bg-slate-200 border-slate-400 text-slate-900" : "border-slate-300 text-slate-700 hover:bg-slate-50"
+              }`}
             >
               • Normal
             </button>
             <button
               type="button"
               onClick={() => setPriority(3)}
-              className={`rounded-md px-3 py-1 border ${priority === 3 ? 'bg-gray-200 border-gray-400' : 'border-slate-300'}`}
+              className={`rounded-md px-3 py-1 border text-sm font-medium transition-colors ${
+                priority === 3 ? "bg-gray-200 border-gray-400 text-gray-900" : "border-slate-300 text-slate-700 hover:bg-slate-50"
+              }`}
             >
               ↓ Low
             </button>
@@ -197,13 +170,13 @@ export default function AddItemModal({ onClose, onAdded }: AddItemModalProps) {
           />
         </div>
 
-        {aiUnavailable ? <AiBadge label="AI unavailable" /> : null}
+        {error ? <p className="text-sm font-medium text-red-600">{error}</p> : null}
 
         <button
-          disabled={isLoading || isAiLoading}
+          disabled={isLoading}
           className="w-full rounded-lg bg-[#0F6E56] px-4 py-2 font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
         >
-          {isLoading ? "Saving..." : "Create item"}
+          {isLoading ? "Saving..." : "Save changes"}
         </button>
       </form>
     </div>

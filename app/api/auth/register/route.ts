@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Username already exists" }, { status: 409 });
     }
 
-    const { salt, hash } = hashPassword(password);
+    const { salt, hash } = await hashPassword(password);
     const user = await User.create({
       username,
       displayName,

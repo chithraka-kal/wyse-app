@@ -1,4 +1,4 @@
-export type Zone = 'wishlist' | 'saving';
+export type Zone = 'wishlist' | 'saving' | 'flash';
 export type Tier = 'big' | 'medium' | 'small';
 export type ItemStatus = 'active' | 'done' | 'removed';
 export type Priority = 1 | 2 | 3;

@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import AddItemModal from "@/components/AddItemModal";
 import AllocateFundsModal from "@/components/AllocateFundsModal";
+import EditItemModal from "@/components/EditItemModal";
 import ItemCard from "@/components/ItemCard";
 import { getBuyNextItem } from "@/lib/buyNext";
 import { Fund, Item } from "@/types/wyse";
@@ -20,6 +21,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [authLoading, setAuthLoading] = useState(true);
   const [showAddItem, setShowAddItem] = useState(false);
+  const [editingItem, setEditingItem] = useState<Item | null>(null);
   const [allocationAmount, setAllocationAmount] = useState<number | null>(null);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [authSubmitting, setAuthSubmitting] = useState(false);
@@ -34,6 +36,14 @@ export default function Home() {
     () =>
       items
         .filter((item) => item.zone === "wishlist" && item.status === "active")
+        .sort((a, b) => +new Date(b.addedAt) - +new Date(a.addedAt)),
+    [items],
+  );
+
+  const flashItems = useMemo(
+    () =>
+      items
+        .filter((item) => item.zone === "flash" && item.status === "active")
         .sort((a, b) => +new Date(b.addedAt) - +new Date(a.addedAt)),
     [items],
   );
@@ -427,7 +437,31 @@ export default function Home() {
           </section>
         ) : null}
 
-        <section className="grid gap-4 lg:grid-cols-2">
+        <section className="grid gap-4 lg:grid-cols-3">
+          <div className="rounded-2xl border border-amber-200 bg-white p-4 shadow-sm">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-slate-900">⚡ Flash Items</h2>
+              <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">
+                Quick List
+              </span>
+            </div>
+            <div className="max-h-[65vh] space-y-3 overflow-y-auto pr-1">
+              {loading ? <p className="text-sm text-slate-600">Loading...</p> : null}
+              {!loading && flashItems.length === 0 ? (
+                <p className="text-sm text-slate-600">No flash items yet.</p>
+              ) : null}
+              {flashItems.map((item) => (
+                <ItemCard
+                  key={item._id}
+                  item={item}
+                  onStartSaving={handleStartSaving}
+                  onEdit={setEditingItem}
+                  onRemove={handleRemove}
+                />
+              ))}
+            </div>
+          </div>
+
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
             <h2 className="mb-3 text-xl font-semibold text-slate-900">Wishlist</h2>
             <div className="max-h-[65vh] space-y-3 overflow-y-auto pr-1">
@@ -440,6 +474,7 @@ export default function Home() {
                   key={item._id}
                   item={item}
                   onStartSaving={handleStartSaving}
+                  onEdit={setEditingItem}
                   onRemove={handleRemove}
                 />
               ))}
@@ -453,6 +488,7 @@ export default function Home() {
                 title="Big"
                 items={bigItems}
                 onAddFunds={handleQuickAddFunds}
+                onEdit={setEditingItem}
                 onRemove={handleRemove}
                 nextUpId={nextUpItem?._id}
               />
@@ -460,6 +496,7 @@ export default function Home() {
                 title="Medium"
                 items={mediumItems}
                 onAddFunds={handleQuickAddFunds}
+                onEdit={setEditingItem}
                 onRemove={handleRemove}
                 nextUpId={nextUpItem?._id}
               />
@@ -467,6 +504,7 @@ export default function Home() {
                 title="Small"
                 items={smallItems}
                 onAddFunds={handleQuickAddFunds}
+                onEdit={setEditingItem}
                 onRemove={handleRemove}
                 nextUpId={nextUpItem?._id}
               />
@@ -513,6 +551,16 @@ export default function Home() {
         />
       ) : null}
 
+      {editingItem ? (
+        <EditItemModal
+          item={editingItem}
+          onClose={() => setEditingItem(null)}
+          onUpdated={async () => {
+            await loadItems();
+          }}
+        />
+      ) : null}
+
       {allocationAmount !== null ? (
         <AllocateFundsModal
           amount={allocationAmount}
@@ -531,11 +579,12 @@ type TierColumnProps = {
   title: string;
   items: Item[];
   onAddFunds: (item: Item) => void;
+  onEdit: (item: Item) => void;
   onRemove: (item: Item) => void;
   nextUpId?: string;
 };
 
-function TierColumn({ title, items, onAddFunds, onRemove, nextUpId }: TierColumnProps) {
+function TierColumn({ title, items, onAddFunds, onEdit, onRemove, nextUpId }: TierColumnProps) {
   return (
     <div className="space-y-2 rounded-xl bg-slate-50 p-2">
       <h3 className="px-1 text-sm font-semibold uppercase tracking-wide text-slate-700">{title}</h3>
@@ -546,6 +595,7 @@ function TierColumn({ title, items, onAddFunds, onRemove, nextUpId }: TierColumn
             key={item._id}
             item={item}
             onAddFunds={onAddFunds}
+            onEdit={onEdit}
             onRemove={onRemove}
             isNextUp={item._id === nextUpId}
           />

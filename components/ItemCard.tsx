@@ -8,17 +8,25 @@ type ItemCardProps = {
   onStartSaving?: (item: Item) => void;
   onRemove?: (item: Item) => void;
   onAddFunds?: (item: Item) => void;
+  onEdit?: (item: Item) => void;
 };
 
-export default function ItemCard({ item, isNextUp, onStartSaving, onRemove, onAddFunds }: ItemCardProps) {
+export default function ItemCard({ item, isNextUp, onStartSaving, onRemove, onAddFunds, onEdit }: ItemCardProps) {
 
   return (
     <article className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div>
           <h3 className="text-base font-semibold text-slate-900">{item.name}</h3>
-          <p className="text-sm text-slate-600">LKR {item.price.toFixed(2)}</p>
+          <p className="text-sm text-slate-600">
+            {item.price && item.price > 0 ? `LKR ${item.price.toFixed(2)}` : "No price set"}
+          </p>
           <div className="mt-1 flex items-center gap-2">
+            {item.zone === "flash" ? (
+              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
+                ⚡ Flash
+              </span>
+            ) : null}
             {item.tier ? (
               <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
                 {item.tier === 'big' ? 'Big' : item.tier === 'medium' ? 'Medium' : 'Small'}
@@ -29,7 +37,7 @@ export default function ItemCard({ item, isNextUp, onStartSaving, onRemove, onAd
         </div>
         {item.aiSuggested ? <AiBadge /> : null}
       </div>
-      {item.zone === 'wishlist' ? (
+      {item.zone === 'flash' ? (
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
@@ -37,6 +45,37 @@ export default function ItemCard({ item, isNextUp, onStartSaving, onRemove, onAd
             className="rounded-lg bg-[#0F6E56] px-3 py-1.5 text-sm font-medium text-white"
           >
             Start Saving
+          </button>
+          <button
+            type="button"
+            onClick={() => onEdit?.(item)}
+            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            Edit
+          </button>
+          <button
+            type="button"
+            onClick={() => onRemove?.(item)}
+            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            Remove
+          </button>
+        </div>
+      ) : item.zone === 'wishlist' ? (
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => onStartSaving?.(item)}
+            className="rounded-lg bg-[#0F6E56] px-3 py-1.5 text-sm font-medium text-white"
+          >
+            Start Saving
+          </button>
+          <button
+            type="button"
+            onClick={() => onEdit?.(item)}
+            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700"
+          >
+            Edit
           </button>
           <button
             type="button"
@@ -49,7 +88,7 @@ export default function ItemCard({ item, isNextUp, onStartSaving, onRemove, onAd
       ) : (
         <>
           <FundProgress funded={item.funded} price={item.price} />
-          <div className="mt-2 flex items-center gap-3">
+          <div className="mt-2 flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={() => onAddFunds?.(item)}
@@ -59,17 +98,24 @@ export default function ItemCard({ item, isNextUp, onStartSaving, onRemove, onAd
             </button>
             <button
               type="button"
+              onClick={() => onEdit?.(item)}
+              className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700"
+            >
+              Edit
+            </button>
+            <button
+              type="button"
               onClick={() => onRemove?.(item)}
               className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700"
             >
               Remove
             </button>
             {item.priority === 1 ? (
-              <span className="inline-flex items-center gap-2 text-sm text-amber-600">
+              <span className="inline-flex items-center gap-1.5 text-sm text-amber-600">
                 <span className="h-2 w-2 rounded-full bg-amber-400" /> Urgent
               </span>
             ) : item.priority === 3 ? (
-              <span className="inline-flex items-center gap-2 text-sm text-slate-500">
+              <span className="inline-flex items-center gap-1.5 text-sm text-slate-500">
                 <span className="h-2 w-2 rounded-full bg-gray-400" /> Low priority
               </span>
             ) : null}

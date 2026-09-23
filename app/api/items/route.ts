@@ -44,13 +44,13 @@ export async function POST(request: NextRequest) {
     // zone defaults to 'wishlist'
     const zone = body?.zone ?? 'wishlist';
     const priority = body?.priority ?? 2;
-    // auto-calc tier from price
+    const price = Number(body?.price) || 0;
     const { tierFromPrice } = await import('@/lib/tierFromPrice');
-    const tier = tierFromPrice(Number(body.price));
+    const tier = price > 0 ? tierFromPrice(price) : null;
 
     const item = await Item.create({
       name: body.name,
-      price: body.price,
+      price,
       funded: body.funded ?? 0,
       zone,
       priority,
