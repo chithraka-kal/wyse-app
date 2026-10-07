@@ -65,8 +65,8 @@ export default function BoardsPage() {
     
     if (!over) return;
     
-    const activeId = active.id;
-    const overId = over.id;
+    const activeId = String(active.id);
+    const overId = String(over.id);
 
     const activeItem = items.find(i => i._id === activeId);
     if (!activeItem) return;
