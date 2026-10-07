@@ -18,6 +18,8 @@ const ItemSchema = new mongoose.Schema({
   imageUrl: { type: String, default: "" },
   aiSuggested: { type: Boolean, default: false },
   tags: [String],
+  boardId: { type: mongoose.Schema.Types.ObjectId, ref: "Board", default: null },
+  boardOrder: { type: Number, default: 0 },
   addedAt: { type: Date, default: Date.now },
 });
 

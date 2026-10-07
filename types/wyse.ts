@@ -20,6 +20,15 @@ export type Item = {
   tags?: string[];
   addedAt: string;
   challengeQuestion?: string;
+  boardId?: string | null;
+  boardOrder?: number;
+};
+
+export type Board = {
+  _id: string;
+  name: string;
+  userId: string;
+  createdAt: string;
 };
 
 export type FundAllocation = {

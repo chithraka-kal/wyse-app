@@ -64,9 +64,13 @@ export default function AllocateFundsModal({
       }
     }
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoadingAi(true);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setAiAvailable(true);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setAmountByItem({});
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSuggested({});
     void suggest();
   }, [amount, items]);

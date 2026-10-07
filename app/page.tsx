@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import AddItemModal from "@/components/AddItemModal";
 import AllocateFundsModal from "@/components/AllocateFundsModal";
@@ -134,8 +135,11 @@ export default function Home() {
 
   useEffect(() => {
     if (!currentUser) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setItems([]);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFunds([]);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLoading(false);
       return;
     }
@@ -406,7 +410,12 @@ export default function Home() {
             <p className="text-sm text-slate-600">Available savings: LKR {availableSavings.toFixed(2)}</p>
           </div>
           <div className="flex flex-wrap gap-2">
-
+            <Link
+              href="/boards"
+              className="rounded-lg bg-teal-100 px-4 py-2 text-sm font-semibold text-teal-800"
+            >
+              Boards
+            </Link>
             <button
               type="button"
               onClick={() => setShowAddItem(true)}
