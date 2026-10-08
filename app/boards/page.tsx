@@ -101,7 +101,20 @@ export default function BoardsPage() {
   if (loading) return <div className="p-8">Loading boards...</div>;
 
   const getItemsForBoard = (boardId: string | null) => 
-    items.filter(i => (i.boardId || null) === boardId);
+    items.filter(i => (i.boardId || null) === boardId && i.status !== "done");
+
+  async function handleRenameBoard(boardId: string, oldName: string) {
+    const newName = window.prompt("Enter new board name:", oldName);
+    if (!newName || newName.trim() === "" || newName === oldName) return;
+    
+    setBoards(prev => prev.map(b => b._id === boardId ? { ...b, name: newName } : b));
+
+    await fetch(`/api/boards/${boardId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: newName })
+    });
+  }
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,_#d6f5ec,_#f8fafc_55%)] p-4 text-slate-900 md:p-8">
@@ -138,7 +151,13 @@ export default function BoardsPage() {
           <div className="flex gap-4 overflow-x-auto pb-4 h-[calc(100vh-200px)]">
             <BoardColumn id="unassigned" name="Unassigned" items={getItemsForBoard(null)} />
             {boards.map(board => (
-              <BoardColumn key={board._id} id={board._id} name={board.name} items={getItemsForBoard(board._id)} />
+              <BoardColumn 
+                key={board._id} 
+                id={board._id} 
+                name={board.name} 
+                items={getItemsForBoard(board._id)}
+                onRename={() => handleRenameBoard(board._id, board.name)}
+              />
             ))}
           </div>
           
@@ -153,13 +172,20 @@ export default function BoardsPage() {
   );
 }
 
-function BoardColumn({ id, name, items }: { id: string, name: string, items: Item[] }) {
+function BoardColumn({ id, name, items, onRename }: { id: string, name: string, items: Item[], onRename?: () => void }) {
   const { setNodeRef } = useSortable({ id, data: { type: 'Board' } });
   
   return (
     <div ref={setNodeRef} className="w-80 flex-shrink-0 flex flex-col rounded-2xl border border-slate-200 bg-white shadow-sm max-h-full">
       <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-2xl">
-        <h2 className="font-semibold text-slate-800">{name}</h2>
+        <div className="flex items-center gap-2">
+          <h2 className="font-semibold text-slate-800">{name}</h2>
+          {onRename && (
+            <button onClick={onRename} className="text-slate-400 hover:text-slate-700 p-1" title="Rename board">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+            </button>
+          )}
+        </div>
         <span className="text-xs bg-slate-200 text-slate-600 px-2 py-1 rounded-full">{items.length}</span>
       </div>
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
@@ -198,7 +224,7 @@ function SortableItem({ item }: { item: Item }) {
       style={style} 
       {...attributes} 
       {...listeners}
-      className="p-3 bg-white border border-slate-200 rounded-xl shadow-sm cursor-grab active:cursor-grabbing hover:border-teal-300 hover:shadow-md transition-all touch-none"
+      className="p-3 bg-white border border-slate-200 rounded-xl shadow-sm cursor-grab active:cursor-grabbing hover:border-teal-300 hover:shadow-md transition-all"
     >
       <h3 className="font-medium text-slate-900 text-sm mb-1">{item.name}</h3>
       <div className="flex justify-between items-center">

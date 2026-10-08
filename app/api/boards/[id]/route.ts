@@ -40,3 +40,42 @@ export async function DELETE(
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const unauthorized = await requireAdmin(request);
+  if (unauthorized) return unauthorized;
+
+  try {
+    await connectDB();
+    const auth = await resolveAuthContext(request);
+    
+    if (!auth || !auth.userId) {
+       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { id } = await params;
+    const body = await request.json();
+
+    const board = await Board.findOne({ _id: id });
+    if (!board) {
+      return NextResponse.json({ error: "Board not found" }, { status: 404 });
+    }
+
+    if (!auth.isAdmin && board.userId.toString() !== auth.userId) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    if (body.name !== undefined) {
+      board.name = body.name;
+      await board.save();
+    }
+
+    return NextResponse.json(board);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to update board";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
