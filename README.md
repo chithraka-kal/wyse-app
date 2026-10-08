@@ -28,6 +28,7 @@ Wyse categorizes your goals into distinct zones to prevent impulse spending and 
   - **Categorization**: Auto-extracts item price and priority from natural language input.
   - **Interrogation**: Asks impulse challenge questions before committing items to savings.
   - **Smart Allocation**: Suggests optimal money distribution across saving targets.
+- **Custom Boards & Drag-and-Drop**: Organize items into custom collections with mobile-friendly drag-and-drop mechanics using `@dnd-kit`.
 
 ---
 
@@ -49,8 +50,10 @@ Wyse - App/
 │   ├── api/
 │   │   ├── ai/             # AI endpoints (allocate, categorise, interrogate)
 │   │   ├── auth/           # Auth routes (login, register, me, logout)
+│   │   ├── boards/         # Board management endpoints
 │   │   ├── funds/          # Fund management endpoints
 │   │   └── items/          # Item CRUD endpoints
+│   ├── boards/             # Custom drag-and-drop boards page
 │   ├── layout.tsx          # Root layout
 │   └── page.tsx            # Main interactive dashboard
 ├── components/
@@ -67,6 +70,7 @@ Wyse - App/
 │   ├── password.ts         # Async PBKDF2 password hashing
 │   └── tierFromPrice.ts    # Auto-tier calculator helper
 ├── models/
+│   ├── Board.js            # Mongoose Board schema
 │   ├── Fund.js             # Mongoose Fund schema
 │   ├── Item.js             # Mongoose Item schema
 │   └── User.js             # Mongoose User schema
@@ -87,13 +91,28 @@ Wyse - App/
 | `POST` | `/api/auth/logout` | Clear session cookie |
 | `GET` | `/api/items` | List active items filtered by user and optional zone |
 | `POST` | `/api/items` | Create a new item (Flash, Wishlist, or Saving For) |
-| `PATCH` | `/api/items/:id` | Update item details, zone, or priority |
+| `PATCH` | `/api/items/:id` | Update item details, zone, priority, or board |
 | `DELETE` | `/api/items/:id` | Soft-delete / mark item as removed |
 | `GET` | `/api/funds` | Fetch logged funds and allocations |
 | `POST` | `/api/funds` | Log new savings or income deposit |
+| `GET` | `/api/boards` | Fetch custom boards for the user |
+| `POST` | `/api/boards` | Create a new custom board |
+| `PATCH` | `/api/boards/:id` | Rename a custom board |
+| `DELETE` | `/api/boards/:id` | Delete a board (unassigns its items) |
 | `POST` | `/api/ai/categorise` | AI item extraction & price estimation |
 | `POST` | `/api/ai/interrogate` | Generate AI impulse challenge questions |
 | `POST` | `/api/ai/allocate` | AI fund allocation recommendation |
+
+---
+
+## 🗄️ Database Relations
+
+The application uses MongoDB (via Mongoose) with the following relational structures:
+
+- **User**: The root entity. Has a one-to-many relationship with `Item`, `Fund`, and `Board`. Every document in the system maps back to a specific `userId`.
+- **Item**: Belongs to a `User`. Optionally contains a `boardId` referencing a `Board` to place it in a custom collection. Tracks price, funded amount, zone, and tier.
+- **Fund**: Belongs to a `User`. Represents a pool of money (e.g. income or savings deposit) that can be allocated to items. Contains an array of `allocations` storing the `itemId` and the `amount` contributed to that item.
+- **Board**: Belongs to a `User`. Acts as a custom categorical grouping for `Item`s. When a board is deleted, related items are safely unassigned (their `boardId` is set to null).
 
 ---
 
