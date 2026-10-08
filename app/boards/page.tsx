@@ -16,7 +16,7 @@ export default function BoardsPage() {
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
@@ -221,10 +221,10 @@ function SortableItem({ item }: { item: Item }) {
   return (
     <div 
       ref={setNodeRef} 
-      style={style} 
+      style={{ ...style, WebkitTouchCallout: 'none' } as React.CSSProperties} 
       {...attributes} 
       {...listeners}
-      className="p-3 bg-white border border-slate-200 rounded-xl shadow-sm cursor-grab active:cursor-grabbing hover:border-teal-300 hover:shadow-md transition-all"
+      className="p-3 bg-white border border-slate-200 rounded-xl shadow-sm cursor-grab active:cursor-grabbing hover:border-teal-300 hover:shadow-md transition-all select-none"
     >
       <h3 className="font-medium text-slate-900 text-sm mb-1">{item.name}</h3>
       <div className="flex justify-between items-center">
